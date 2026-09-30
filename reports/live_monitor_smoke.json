@@ -1,0 +1,57 @@
+{
+  "events": 240,
+  "labelled_events": 0,
+  "latency_p95_ms": 14.009449997683985,
+  "drift": [
+    {
+      "feature": "amount",
+      "psi": 0.3197596855228596,
+      "alert": true,
+      "reference_mean": 99.617559991274,
+      "current_mean": 222.701875
+    },
+    {
+      "feature": "hour",
+      "psi": 0.9924152837694172,
+      "alert": true,
+      "reference_mean": 11.458115183246074,
+      "current_mean": 10.033333333333333
+    },
+    {
+      "feature": "account_age_days",
+      "psi": 0.07424545310610932,
+      "alert": false,
+      "reference_mean": 903.6441972076789,
+      "current_mean": 903.225
+    },
+    {
+      "feature": "distance_km",
+      "psi": 1.1218909228178993,
+      "alert": true,
+      "reference_mean": 40.27812281849913,
+      "current_mean": 159.28824999999998
+    },
+    {
+      "feature": "transactions_1h",
+      "psi": 0.004683811807843129,
+      "alert": false,
+      "reference_mean": 2.00054537521815,
+      "current_mean": 2.0166666666666666
+    },
+    {
+      "feature": "international",
+      "psi": 0.00021414886706655476,
+      "alert": false,
+      "reference_mean": 0.12020069808027924,
+      "current_mean": 0.125
+    },
+    {
+      "feature": "device_new",
+      "psi": 0.002502142548298311,
+      "alert": false,
+      "reference_mean": 0.14845113438045376,
+      "current_mean": 0.16666666666666666
+    }
+  ],
+  "note": "Drift requires 100 observations. Labelled metrics may be biased by analyst selection. No automatic retraining."
+}

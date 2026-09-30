@@ -1,0 +1,155 @@
+{
+  "source": "synthetic transactions; seed 42; no real financial records",
+  "model_version": "02d363527466",
+  "selected_model": "logistic",
+  "selection_metric": "validation average precision",
+  "train_rows": 9168,
+  "validation_rows": 2768,
+  "test_rows": 3200,
+  "train_as_of": "2025-03-08 16:00:00",
+  "evaluation_as_of": "2025-03-30 21:20:00",
+  "train_label_max": "2025-03-08 15:50:00",
+  "validation_label_max": "2025-03-30 21:10:00",
+  "validation": {
+    "logistic": {
+      "average_precision": 0.0634856918648246,
+      "roc_auc": 0.7604699293888484,
+      "brier": 0.010524281904669103,
+      "precision_at_daily_budget": 0.055,
+      "recall_at_daily_budget": 0.36666666666666664,
+      "reviewed": 200,
+      "fraud_prevalence": 0.01083815028901734
+    },
+    "boosted": {
+      "average_precision": 0.05141502000827029,
+      "roc_auc": 0.7489773557341125,
+      "brier": 0.01073197993361298,
+      "precision_at_daily_budget": 0.055,
+      "recall_at_daily_budget": 0.36666666666666664,
+      "reviewed": 200,
+      "fraud_prevalence": 0.01083815028901734
+    }
+  },
+  "test": {
+    "logistic": {
+      "average_precision": 0.11288318457686282,
+      "roc_auc": 0.7533444373942471,
+      "brier": 0.014235157795183046,
+      "precision_at_daily_budget": 0.07916666666666666,
+      "recall_at_daily_budget": 0.3958333333333333,
+      "reviewed": 240,
+      "fraud_prevalence": 0.015
+    },
+    "boosted": {
+      "average_precision": 0.11415962390063204,
+      "roc_auc": 0.7962437870135364,
+      "brier": 0.014211446712795638,
+      "precision_at_daily_budget": 0.075,
+      "recall_at_daily_budget": 0.375,
+      "reviewed": 240,
+      "fraud_prevalence": 0.015
+    }
+  },
+  "drift_normal": [
+    {
+      "feature": "amount",
+      "psi": 0.004297209871427665,
+      "alert": false,
+      "reference_mean": 99.617559991274,
+      "current_mean": 99.29653750000001
+    },
+    {
+      "feature": "hour",
+      "psi": 0.00039155545432340634,
+      "alert": false,
+      "reference_mean": 11.458115183246074,
+      "current_mean": 11.5
+    },
+    {
+      "feature": "account_age_days",
+      "psi": 0.0046468152783814935,
+      "alert": false,
+      "reference_mean": 903.6441972076789,
+      "current_mean": 881.98375
+    },
+    {
+      "feature": "distance_km",
+      "psi": 0.002985938809429193,
+      "alert": false,
+      "reference_mean": 40.27812281849913,
+      "current_mean": 40.838371875
+    },
+    {
+      "feature": "transactions_1h",
+      "psi": 0.0006376735753327667,
+      "alert": false,
+      "reference_mean": 2.00054537521815,
+      "current_mean": 1.9865625
+    },
+    {
+      "feature": "international",
+      "psi": 0.0001623564013318971,
+      "alert": false,
+      "reference_mean": 0.12020069808027924,
+      "current_mean": 0.124375
+    },
+    {
+      "feature": "device_new",
+      "psi": 0.00012824700978553366,
+      "alert": false,
+      "reference_mean": 0.14845113438045376,
+      "current_mean": 0.1525
+    }
+  ],
+  "drift_incident": [
+    {
+      "feature": "amount",
+      "psi": 1.464089178462301,
+      "alert": true,
+      "reference_mean": 99.617559991274,
+      "current_mean": 397.18615000000005
+    },
+    {
+      "feature": "hour",
+      "psi": 0.00039155545432340634,
+      "alert": false,
+      "reference_mean": 11.458115183246074,
+      "current_mean": 11.5
+    },
+    {
+      "feature": "account_age_days",
+      "psi": 0.0046468152783814935,
+      "alert": false,
+      "reference_mean": 903.6441972076789,
+      "current_mean": 881.98375
+    },
+    {
+      "feature": "distance_km",
+      "psi": 12.43333730225062,
+      "alert": true,
+      "reference_mean": 40.27812281849913,
+      "current_mean": 290.83837187499995
+    },
+    {
+      "feature": "transactions_1h",
+      "psi": 0.0006376735753327667,
+      "alert": false,
+      "reference_mean": 2.00054537521815,
+      "current_mean": 1.9865625
+    },
+    {
+      "feature": "international",
+      "psi": 0.0001623564013318971,
+      "alert": false,
+      "reference_mean": 0.12020069808027924,
+      "current_mean": 0.124375
+    },
+    {
+      "feature": "device_new",
+      "psi": 0.00012824700978553366,
+      "alert": false,
+      "reference_mean": 0.14845113438045376,
+      "current_mean": 0.1525
+    }
+  ]
+}
