@@ -14,6 +14,8 @@ python -m venv .venv
 # macOS/Linux: source .venv/bin/activate
 pip install -r requirements.txt
 python -m fraud.train
+# Real public benchmark (download creditcard.arff from OpenML dataset 1597 first)
+python -m fraud.train --openml-creditcard data/private/creditcard.arff
 python -m pytest -q
 streamlit run app.py
 ```
@@ -39,12 +41,14 @@ API documentation: `http://127.0.0.1:8003/docs`.
 Example scoring payload:
 
 ```json
-{"transaction_id":"DEMO-1","amount":240,"hour":2,"account_age_days":15,"distance_km":250,"transactions_1h":7,"international":0,"device_new":1}
+{"transaction_id":"DEMO-1","features":{"amount":240,"v1":0.1,"v2":-0.3,"v3":0.0,"v4":0.0,"v5":0.0,"v6":0.0,"v7":0.0,"v8":0.0,"v9":0.0,"v10":0.0,"v11":0.0,"v12":0.0,"v13":0.0,"v14":0.0,"v15":0.0,"v16":0.0,"v17":0.0,"v18":0.0,"v19":0.0,"v20":0.0,"v21":0.0,"v22":0.0,"v23":0.0,"v24":0.0,"v25":0.0,"v26":0.0,"v27":0.0,"v28":0.0}}
 ```
 
 ## Data and evaluation
 
-The bundled transactions are **synthetic**, generated with seed 42. They contain probabilistic fraud labels and a three-day label delay, not real customer or payment information. Scores are demonstrations and must not be used for actual financial decisions.
+The reproducible real-data path uses the anonymized **ULB/Worldline credit-card fraud benchmark** published as [OpenML dataset 1597](https://www.openml.org/d/1597). It contains 284,807 transactions, 492 fraud labels, Amount and anonymized PCA features V1–V28. Download its `creditcard.arff` file into `data/private/`, which Git ignores, then run the command above. Cite the dataset in any presentation or derivative work and check the source's current terms before redistributing data.
+
+The source Time field is elapsed seconds, not a calendar date. This project supplies a fixed UTC origin only to make chronological splits and daily review capacity reproducible; it does not represent the original transaction dates. The three-hour label delay is also a modelling simulation because the benchmark spans only two days and has no observed label-arrival time. Scores are research demonstrations and must not be used for actual financial decisions.
 
 Training uses the first 60% of time, validation the next 20%, and final testing the last 20%. Labels unavailable at the training or validation cutoff are excluded. Feature transforms are fit only on training data. All supplied features must be available at prediction time; the API assumes upstream feature computation, not a streaming feature store.
 
@@ -54,7 +58,7 @@ Logistic regression and histogram gradient boosting are compared. The active mod
 
 ```mermaid
 flowchart LR
-    A[CSV / deterministic generator] --> B[Availability-aware temporal splits]
+    A[OpenML benchmark / CSV / demo generator] --> B[Availability-aware temporal splits]
     B --> C[Baseline and boosted candidates]
     C --> D[Validation selection]
     D --> E[Versioned model artifact]
@@ -78,7 +82,7 @@ The API reads the pointer on requests and caches artifacts by version. Identical
 
 ## Monitoring and limitations
 
-The incident simulation increases amount and distance distributions. PSI > 0.2 is a heuristic alert, not evidence of model failure. Monitoring waits for 100 events before returning PSI and never automatically retrains. Labelled metrics can be biased when only reviewed transactions receive outcomes. The replay command measures sequential local HTTP latency, not production capacity.
+The incident simulation increases Amount and shifts V1. PSI > 0.2 is a heuristic alert, not evidence of model failure. Monitoring waits for 100 events before returning PSI and never automatically retrains. Labelled metrics can be biased when only reviewed transactions receive outcomes. The replay command measures sequential local HTTP latency, not production capacity.
 
 The dashboard's historical queue and interactive scoring run locally; the API's live queue is separate. SQLite and a single-process service are appropriate for this demo. Authentication, distributed feature computation, model governance, robust calibration and real-world validation are future deployment work.
 
@@ -88,7 +92,7 @@ The dashboard's historical queue and interactive scoring run locally; the API's 
 python -m fraud.train --csv data/private/transactions.csv
 ```
 
-The schema is illustrated by `data/schema_example.csv`. Required fields are transaction_id, timestamp, label_available_at, is_fraud and the seven features in `fraud/core.py`. At least 1,000 rows and both label classes in every temporal split are required. Keep private inputs in the ignored folder and review generated reports before publishing.
+The schema is illustrated by `data/schema_example.csv`. Required fields are transaction_id, timestamp, label_available_at, is_fraud, amount and V1–V28-compatible numeric feature columns named `v1` through `v28`. At least 1,000 rows and both label classes in every temporal split are required. Keep private inputs in the ignored folder and review generated reports before publishing.
 
 ## Docker and checks
 
@@ -101,4 +105,4 @@ docker run --rm -p 8003:8003 fraud-platform uvicorn fraud.api:app --host 0.0.0.0
 
 Tests cover temporal label availability, review budgets, drift, invalid data, idempotency, conflict handling, delayed outcomes and API validation. Never load untrusted joblib files.
 
-Created with AI coding assistance. Reproduce the runs and understand the failure modes before presenting this work. MIT licensed; generated synthetic data uses the same licence.
+Created with AI coding assistance. Reproduce the runs and understand the failure modes before presenting this work. MIT licensed; no source dataset is included in this repository.

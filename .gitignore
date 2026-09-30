@@ -8,3 +8,8 @@ __pycache__/
 runtime/
 artifacts/*.joblib
 data/private/
+artifacts/current.txt
+data/reference.csv
+data/schema_example.csv
+data/test_transactions.csv
+reports/review_queue.csv

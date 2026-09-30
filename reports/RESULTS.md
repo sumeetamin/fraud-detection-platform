@@ -1,12 +1,10 @@
 # Measured results
 
-Synthetic transactions; seed 42. Selection uses validation average precision. Test results were not used to change the selected model.
+Results use the ULB/Worldline credit-card fraud benchmark through OpenML dataset 1597. The source is anonymized and the three-hour label delay is simulated. Model selection uses validation average precision; final-test results were not used to select the model.
 
 | Model | Validation AP | Test AP | Test ROC-AUC | Precision at 10 reviews/day | Recall at 10 reviews/day |
 |---|---:|---:|---:|---:|---:|
-| logistic | 0.0635 | 0.1129 | 0.7533 | 7.9% | 39.6% |
-| boosted | 0.0514 | 0.1142 | 0.7962 | 7.5% | 37.5% |
+| logistic | 0.5844 | 0.6604 | 0.9729 | 100.0% | 13.3% |
+| boosted | 0.7127 | 0.7736 | 0.9838 | 100.0% | 13.3% |
 
-Selected model: **logistic**. Final test fraud prevalence: 1.5%. The boosted model's slightly better final-test AP does not justify retroactively selecting it. Most reviewed transactions remain false positives, which is an operational limitation rather than a hidden metric.
-
-A 120-request sequential local HTTP smoke run measured median latency 31.45 ms and p95 latency 46.93 ms. These values include local HTTP overhead; they are not a concurrent load or production SLA benchmark.
+Selected model: **boosted**. The chronological run used 157,147 training rows, 31,813 validation rows and 56,962 final-test rows. The final test fraud prevalence was 0.13%. Capacity metrics are based on a 10-review daily queue and are sensitive to the benchmark's short two-day time range; they are not operational performance claims.

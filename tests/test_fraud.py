@@ -23,17 +23,19 @@ def test_review_budget_and_drift():
 def test_api_idempotency_labels_and_monitor(tmp_path,monkeypatch):
     monkeypatch.setenv('FRAUD_DB',str(tmp_path/'events.sqlite'))
     c=TestClient(app)
-    data=dict(transaction_id='TEST-1',amount=100,hour=12,account_age_days=100,distance_km=20,transactions_1h=2,international=0,device_new=0)
+    features={key:0.0 for key in FEATURES}; features['amount']=100.0
+    data=dict(transaction_id='TEST-1',features=features)
     first=c.post('/predict',json=data); assert first.status_code==200
     assert 0<=first.json()['score']<=1
     assert c.post('/predict',json=data).json()['idempotent']
-    assert c.post('/predict',json=dict(data,amount=101)).status_code==409
+    changed=dict(features); changed['amount']=101.0
+    assert c.post('/predict',json={'transaction_id':'TEST-1','features':changed}).status_code==409
     assert len(c.get('/queue').json())==1
     assert c.post('/labels',json={'transaction_id':'TEST-1','is_fraud':1}).status_code==200
     assert c.get('/queue').json()==[]
     assert c.get('/monitor').json()['labelled_events']==1
     assert c.post('/labels',json={'transaction_id':'TEST-1','is_fraud':0}).status_code==409
-    assert c.post('/predict',json=dict(data,hour=25)).status_code==422
+    assert c.post('/predict',json={'transaction_id':'INVALID','features':{'amount':2.0}}).status_code==422
 
 def test_bad_registry_and_data():
     with pytest.raises(ValueError): activate('../bad')

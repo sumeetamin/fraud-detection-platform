@@ -6,6 +6,7 @@ from pathlib import Path
 from datetime import datetime, timezone
 from functools import lru_cache
 import joblib
+import numpy as np
 import pandas as pd
 from fastapi import FastAPI,HTTPException,Query
 from pydantic import BaseModel,Field,ConfigDict
@@ -16,13 +17,7 @@ app=FastAPI(title='Fraud Detection Platform',version='1.0.0')
 class Transaction(BaseModel):
     model_config=ConfigDict(extra='forbid')
     transaction_id: str=Field(min_length=1,max_length=80,pattern=r'^[A-Za-z0-9_-]+$')
-    amount: float=Field(ge=0,le=1e9,allow_inf_nan=False)
-    hour: int=Field(ge=0,le=23)
-    account_age_days: int=Field(ge=0,le=50000)
-    distance_km: float=Field(ge=0,le=50000,allow_inf_nan=False)
-    transactions_1h: int=Field(ge=0,le=100000)
-    international: int=Field(ge=0,le=1)
-    device_new: int=Field(ge=0,le=1)
+    features: dict[str,float]
 
 class Label(BaseModel):
     transaction_id: str
@@ -56,14 +51,18 @@ def health():
 def predict(transaction:Transaction):
     start=time.perf_counter()
     payload=transaction.model_dump()
+    bundle=active()
+    if set(payload['features'])!=set(bundle['features']):
+        raise HTTPException(422,'features must contain exactly: '+', '.join(bundle['features']))
+    if not np.isfinite(list(payload['features'].values())).all() or payload['features']['amount']<0:
+        raise HTTPException(422,'features must be finite and amount must be non-negative.')
     encoded=json.dumps(payload,sort_keys=True)
     with connect() as conn:
         old=conn.execute('SELECT payload,score,model_version FROM events WHERE transaction_id=?',(transaction.transaction_id,)).fetchone()
     if old:
         if old[0]!=encoded: raise HTTPException(409,'Transaction ID already exists with different features.')
         return dict(transaction_id=transaction.transaction_id,score=old[1],model_version=old[2],idempotent=True)
-    bundle=active()
-    score=float(bundle['model'].predict_proba(pd.DataFrame([payload])[FEATURES])[0,1])
+    score=float(bundle['model'].predict_proba(pd.DataFrame([payload['features']])[FEATURES])[0,1])
     latency=(time.perf_counter()-start)*1000
     try:
         with connect() as conn:
@@ -98,8 +97,7 @@ def monitor():
     with connect() as conn:
         rows=conn.execute('SELECT payload,score,latency_ms,label,model_version FROM events ORDER BY received_at DESC LIMIT 1000').fetchall()
     if not rows: return {'events':0,'drift':[],'labelled_events':0}
-    import numpy as np
-    current=pd.DataFrame([json.loads(r[0]) for r in rows])
+    current=pd.DataFrame([json.loads(r[0])['features'] for r in rows])
     reference=pd.read_csv(ROOT/'data/reference.csv')
     labelled=[r for r in rows if r[3] is not None]
     report=dict(events=len(rows),labelled_events=len(labelled),latency_p95_ms=float(np.percentile([r[2] for r in rows],95)),

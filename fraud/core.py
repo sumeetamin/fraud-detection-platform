@@ -4,17 +4,15 @@ import pandas as pd
 from sklearn.metrics import average_precision_score, roc_auc_score, brier_score_loss
 
 ROOT=Path(__file__).resolve().parents[1]
-FEATURES=['amount','hour','account_age_days','distance_km','transactions_1h','international','device_new']
+FEATURES=['amount']+[f'v{i}' for i in range(1,29)]
 
 def demo_data(seed=42, n=16000):
     rng=np.random.default_rng(seed)
     timestamps=pd.date_range('2025-01-01',periods=n,freq='10min')
     df=pd.DataFrame(dict(transaction_id=[f'TX-{i:06d}' for i in range(n)], timestamp=timestamps,
-        amount=np.round(rng.lognormal(4,1.1,n),2), hour=timestamps.hour,
-        account_age_days=rng.integers(0,1800,n), distance_km=np.round(rng.exponential(40,n),2),
-        transactions_1h=rng.poisson(2,n),international=rng.binomial(1,.12,n),device_new=rng.binomial(1,.15,n)))
-    logits=(-6.2+1.2*df.international+1.7*df.device_new+.35*df.transactions_1h
-            +.003*df.distance_km+.8*(df.amount>180)+1.1*(df.account_age_days<40)+.6*(df.hour<5))
+        amount=np.round(rng.lognormal(4,1.1,n),2)))
+    for feature in FEATURES[1:]: df[feature]=rng.normal(0,1,n)
+    logits=(-6.2+.8*(df.amount>180)+.7*df.v3-1.2*df.v14+.6*df.v17)
     df['is_fraud']=rng.binomial(1,1/(1+np.exp(-logits)))
     df['label_available_at']=df.timestamp+pd.Timedelta(days=3)
     return df
@@ -28,12 +26,8 @@ def validate(df):
     if df.transaction_id.duplicated().any(): raise ValueError('Duplicate transaction IDs.')
     for col in FEATURES+['is_fraud']: df[col]=pd.to_numeric(df[col],errors='raise')
     if not np.isfinite(df[FEATURES]).all().all(): raise ValueError('Features must be finite.')
-    if (df[FEATURES]<0).any().any(): raise ValueError('Negative feature values are not allowed.')
-    for col in ['international','device_new','is_fraud']:
-        if not df[col].isin([0,1]).all(): raise ValueError(f'{col} must be 0 or 1.')
-    if not df.hour.between(0,23).all(): raise ValueError('Hour must be 0–23.')
-    for col in ['hour','account_age_days','transactions_1h']:
-        if (df[col]%1!=0).any(): raise ValueError(f'{col} must be an integer.')
+    if (df.amount<0).any(): raise ValueError('Amount must be non-negative.')
+    if not df.is_fraud.isin([0,1]).all(): raise ValueError('is_fraud must be 0 or 1.')
     if (df.label_available_at<df.timestamp).any(): raise ValueError('Labels cannot arrive before transactions.')
     if len(df)<1000: raise ValueError('At least 1,000 rows required.')
     return df.sort_values('timestamp').reset_index(drop=True)

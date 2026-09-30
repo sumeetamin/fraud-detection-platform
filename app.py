@@ -8,9 +8,10 @@ st.set_page_config(page_title='Fraud Operations',page_icon='🛡️',layout='wid
 st.caption('RISK LAB / MACHINE LEARNING ENGINEERING')
 st.title('Fraud Operations')
 st.write('Score transactions. Prioritize reviews. Detect changing conditions.')
-if not (ROOT/'reports/evaluation.json').exists(): st.info('Run `python -m fraud.train` first.'); st.stop()
+required=[ROOT/'reports/evaluation.json',ROOT/'artifacts/current.txt',ROOT/'data/test_transactions.csv',ROOT/'data/reference.csv']
+if not all(path.exists() for path in required): st.info('Run `python -m fraud.train` first. Raw benchmark data and model artifacts are intentionally not committed.'); st.stop()
 report=json.loads((ROOT/'reports/evaluation.json').read_text())
-st.info('Demonstration only · '+report['source']+' · scores are not production fraud decisions')
+st.info('Research demonstration only · '+report['source']+' · scores are not production fraud decisions')
 version=(ROOT/'artifacts/current.txt').read_text().strip()
 bundle=joblib.load(ROOT/f'artifacts/{version}.joblib')
 df=pd.read_csv(ROOT/'data/test_transactions.csv',parse_dates=['timestamp'])
@@ -29,30 +30,24 @@ with tabs[0]:
     st.download_button('Export queue',queue.to_csv(index=False),'review-queue.csv','text/csv')
 with tabs[1]:
     with st.form('score'):
-        a,b=st.columns(2)
-        with a:
-            amount=st.number_input('Amount',min_value=0.,value=240.)
-            hour=st.slider('Hour',0,23,2)
-            age=st.number_input('Account age in days',min_value=0,value=15)
-            distance=st.number_input('Distance from usual location (km)',min_value=0.,value=250.)
-        with b:
-            count=st.number_input('Transactions in preceding hour',min_value=0,value=7)
-            international=st.checkbox('International')
-            new=st.checkbox('New device',value=True)
+        amount=st.number_input('Amount',min_value=0.,value=240.)
+        row=reference[FEATURES].median().to_frame().T
+        row['amount']=amount
+        st.caption('The benchmark exposes anonymized PCA components V1–V28. Adjust them only if you have compatible upstream features.')
+        edited=st.data_editor(row,hide_index=True,num_rows='fixed',width='stretch')
         submitted=st.form_submit_button('Calculate score')
     if submitted:
-        row=pd.DataFrame([dict(amount=amount,hour=hour,account_age_days=age,distance_km=distance,transactions_1h=count,international=int(international),device_new=int(new))])
-        score=bundle['model'].predict_proba(row[FEATURES])[0,1]
+        score=bundle['model'].predict_proba(edited[FEATURES])[0,1]
         st.metric('Model risk score',f'{score:.1%}')
         st.caption('Local interactive inference; does not add an event to the API review queue.')
 with tabs[2]:
     st.write('Model selected using validation average precision: **'+report['selected_model']+'**')
     st.dataframe(pd.DataFrame(report['test']).T,width='stretch')
-    st.write('Labels arrive after three days in the demo. Training and validation exclude labels that were unavailable at their respective cutoff dates.')
+    st.write('A three-hour label delay is simulated for the two-day benchmark. Training and validation exclude labels that were unavailable at their respective cutoff dates.')
 with tabs[3]:
     shift=st.toggle('Simulate changed transaction distribution')
     current=df.copy()
-    if shift: current['amount']*=4; current['distance_km']+=250
+    if shift: current['amount']*=4; current['v1']+=3
     result=pd.DataFrame(drift(reference,current))
     st.bar_chart(result.set_index('feature').psi)
     st.dataframe(result,hide_index=True)
