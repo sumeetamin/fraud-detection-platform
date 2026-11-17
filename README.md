@@ -82,7 +82,7 @@ The API reads the pointer on requests and caches artifacts by version. Identical
 
 ## Monitoring and limitations
 
-The incident simulation increases Amount and shifts V1. PSI > 0.2 is a heuristic alert, not evidence of model failure. Monitoring waits for 100 events before returning PSI and never automatically retrains. Labelled metrics can be biased when only reviewed transactions receive outcomes. The replay command measures sequential local HTTP latency, not production capacity.
+The incident simulation increases Amount and shifts V1. PSI > 0.2 is a heuristic alert, not evidence of model failure. Monitoring waits for 100 events before returning PSI and never automatically retrains. Labelled metrics can be biased when only reviewed transactions receive outcomes. Replay can measure sequential and concurrent local HTTP latency. For example, run `python -m fraud.replay --limit 200 --concurrency 16` against the local API. The report includes throughput, p50/p95 latency, and errors. Results include client and network overhead and do not establish production capacity.
 
 The dashboard's historical queue and interactive scoring run locally; the API's live queue is separate. SQLite and a single-process service are appropriate for this demo. Authentication, distributed feature computation, model governance, robust calibration and real-world validation are future deployment work.
 
