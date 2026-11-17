@@ -10,7 +10,7 @@ requires-python = ">=3.11"
 dynamic = ["dependencies"]
 
 [tool.setuptools.dynamic]
-dependencies = {file = ["requirements.txt"]}
+dependencies = {file = ["requirements-api.txt"]}
 
 [tool.setuptools.packages.find]
 include = ["fraud*"]
