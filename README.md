@@ -92,9 +92,9 @@ The API reads the pointer on requests and caches artifacts by version. Identical
 
 The incident simulation increases Amount and shifts V1. PSI > 0.2 is a heuristic alert, not evidence of model failure. Monitoring waits for 100 events before returning PSI and never automatically retrains. Labelled metrics can be biased when only reviewed transactions receive outcomes. Replay can measure sequential and concurrent local HTTP latency. For example, run `python -m fraud.replay --limit 200 --concurrency 16` against the local API. The report includes throughput, p50/p95 latency, and errors. Results include client and network overhead and do not establish production capacity.
 
-The dashboard's historical queue and interactive scoring run locally; the API's live queue is separate. For a hosted deployment, set `FRAUD_ENV=production`, a random `FRAUD_API_TOKEN` (at least 32 characters), and a persistent Postgres `DATABASE_URL`. The authenticated API supports multiple serverless instances through Postgres. Production still needs gateway rate limiting, distributed feature computation, model governance, robust calibration and real-world validation.
+The dashboard's historical queue and interactive scoring run locally; the API's live queue is separate. For a hosted deployment, set `FRAUD_ENV=production`, a random `FRAUD_API_TOKEN` (at least 32 characters), and a persistent Postgres `DATABASE_URL`. The authenticated API supports multiple serverless instances through Postgres. Before removing Vercel SSO protection, add gateway rate limiting and monitor database operations and storage. Distributed feature computation, model governance, robust calibration and real-world validation are also still required before production decision use.
 
-See [measured results](reports/RESULTS.md) for a reproducible ULB benchmark and a 1,000-request local API replay, including normal and shifted-input latency/error measurements. Cloud cost and public deployment have not been measured.
+See [measured results](reports/RESULTS.md) for a reproducible ULB benchmark and a 1,000-request local API replay, including normal and shifted-input latency/error measurements. The hosted service is protected by Vercel SSO; no cloud inference performance or cost claim is made.
 
 ## Bring your own data
 
