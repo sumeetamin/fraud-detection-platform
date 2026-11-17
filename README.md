@@ -123,4 +123,3 @@ docker run --rm -p 8503:8501 fraud-platform
 Tests cover temporal label availability, review budgets, drift, invalid data, idempotency, conflict handling, delayed outcomes and API validation. Never load untrusted joblib files.
 
 Created with AI coding assistance. Reproduce the runs and understand the failure modes before presenting this work. MIT licensed; no source dataset is included in this repository.
-
