@@ -65,12 +65,12 @@ flowchart LR
     C --> D[Validation selection]
     D --> E[Versioned model artifact]
     E --> F[FastAPI inference]
-    F --> G[SQLite event log]
+    F --> G[SQLite locally / Postgres when deployed]
     G --> H[Review queue / delayed labels]
     G --> I[Drift and latency monitoring]
 ```
 
-`runtime/events.sqlite` is created automatically and ignored by Git. Set `FRAUD_DB` to override the local database path. The API initializes WAL/schema once per worker and closes request connections after use. Runtime data and model binaries are not committed. `python -m fraud.train` regenerates model artifacts in a fresh clone.
+`runtime/events.sqlite` is created automatically and ignored by Git for local development. Set `FRAUD_DB` to override the local database path. When `DATABASE_URL` is set, the API uses Postgres and creates the event table on first use. In `FRAUD_ENV=production`, the API refuses to fall back to ephemeral SQLite: configure a durable Postgres URL. The Vercel entrypoint is `index.py` (`index:app` in `pyproject.toml`). The small selected ULB model artifact is included so a fresh deployment serves the real benchmark model rather than silently switching to the synthetic demo. Runtime databases remain uncommitted. `python -m fraud.train` regenerates model artifacts.
 
 The container uses a model artifact only when `artifacts/current.txt` points to an included `.joblib` file. Otherwise it trains the clearly labeled synthetic demo model. To containerize the ULB model, download the approved public data, train it locally, and build while the matching artifact and pointer are present; do not include private source data in the build context.
 
@@ -92,7 +92,7 @@ The API reads the pointer on requests and caches artifacts by version. Identical
 
 The incident simulation increases Amount and shifts V1. PSI > 0.2 is a heuristic alert, not evidence of model failure. Monitoring waits for 100 events before returning PSI and never automatically retrains. Labelled metrics can be biased when only reviewed transactions receive outcomes. Replay can measure sequential and concurrent local HTTP latency. For example, run `python -m fraud.replay --limit 200 --concurrency 16` against the local API. The report includes throughput, p50/p95 latency, and errors. Results include client and network overhead and do not establish production capacity.
 
-The dashboard's historical queue and interactive scoring run locally; the API's live queue is separate. SQLite and a single-process service are appropriate for this demo. Production still needs gateway rate limiting, durable multi-instance storage, distributed feature computation, model governance, robust calibration and real-world validation.
+The dashboard's historical queue and interactive scoring run locally; the API's live queue is separate. For a hosted deployment, set `FRAUD_ENV=production`, a random `FRAUD_API_TOKEN` (at least 32 characters), and a persistent Postgres `DATABASE_URL`. The authenticated API supports multiple serverless instances through Postgres. Production still needs gateway rate limiting, distributed feature computation, model governance, robust calibration and real-world validation.
 
 See [measured results](reports/RESULTS.md) for a reproducible ULB benchmark and a 1,000-request local API replay, including normal and shifted-input latency/error measurements. Cloud cost and public deployment have not been measured.
 
@@ -123,3 +123,4 @@ docker run --rm -p 8503:8501 fraud-platform
 Tests cover temporal label availability, review budgets, drift, invalid data, idempotency, conflict handling, delayed outcomes and API validation. Never load untrusted joblib files.
 
 Created with AI coding assistance. Reproduce the runs and understand the failure modes before presenting this work. MIT licensed; no source dataset is included in this repository.
+

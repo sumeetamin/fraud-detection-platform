@@ -7,9 +7,11 @@ __pycache__/
 .streamlit/secrets.toml
 runtime/
 artifacts/*.joblib
+!artifacts/ffff1fa8df99.joblib
 data/private/
 artifacts/current.txt
 data/reference.csv
 data/schema_example.csv
 data/test_transactions.csv
 reports/review_queue.csv
+

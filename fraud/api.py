@@ -15,9 +15,15 @@ from fastapi import FastAPI,HTTPException,Query,Header,Request,Depends
 from pydantic import BaseModel,Field,ConfigDict
 from .core import ROOT,FEATURES,drift
 
+try:
+    import psycopg
+except ImportError:  # SQLite-only local installs can omit the Postgres extra.
+    psycopg=None
+
 app=FastAPI(title='Fraud Detection Platform',version='1.0.0')
 _db_init_lock=threading.Lock()
 _initialized_databases=set()
+INTEGRITY_ERRORS=tuple(error for error in (sqlite3.IntegrityError, psycopg.IntegrityError if psycopg else None) if error)
 
 class Transaction(BaseModel):
     model_config=ConfigDict(extra='forbid')
@@ -43,7 +49,52 @@ def require_api_access(request:Request,x_api_key:str|None=Header(default=None)):
     if client is None or client.host not in {'127.0.0.1','::1','testclient'}:
         raise HTTPException(503,'Configure FRAUD_API_TOKEN before serving non-loopback requests.')
 
+class PostgresConnection:
+    """Small SQL adapter so the API can keep one placeholder style for both stores."""
+    def __init__(self, connection):
+        self.connection=connection
+
+    def execute(self, statement, parameters=()):
+        return self.connection.execute(statement.replace('?', '%s'), parameters)
+
+    def commit(self): self.connection.commit()
+    def rollback(self): self.connection.rollback()
+    def close(self): self.connection.close()
+
+
 def connect():
+    database_url=os.environ.get('DATABASE_URL')
+    production=os.environ.get('FRAUD_ENV','local').lower()=='production'
+    if database_url:
+        if psycopg is None:
+            raise HTTPException(503,'Install psycopg to use DATABASE_URL.')
+        key='postgres:'+database_url
+        if key not in _initialized_databases:
+            with _db_init_lock:
+                if key not in _initialized_databases:
+                    setup=psycopg.connect(database_url)
+                    try:
+                        setup.execute('CREATE TABLE IF NOT EXISTS events (transaction_id TEXT PRIMARY KEY, received_at TEXT, payload TEXT, score DOUBLE PRECISION, model_version TEXT, latency_ms DOUBLE PRECISION, label INTEGER, label_received_at TEXT)')
+                        setup.commit()
+                    finally:
+                        setup.close()
+                    _initialized_databases.add(key)
+
+        @contextmanager
+        def managed_postgres_connection():
+            conn=PostgresConnection(psycopg.connect(database_url))
+            try:
+                yield conn
+                conn.commit()
+            except Exception:
+                conn.rollback()
+                raise
+            finally:
+                conn.close()
+        return managed_postgres_connection()
+
+    if production:
+        raise HTTPException(503,'DATABASE_URL must point to persistent Postgres in production.')
     path=Path(os.environ.get('FRAUD_DB',str(ROOT/'runtime/events.sqlite')))
     path.parent.mkdir(parents=True,exist_ok=True)
     key=str(path.resolve())
@@ -105,7 +156,7 @@ def predict(transaction:Transaction):
         with connect() as conn:
             conn.execute('INSERT INTO events VALUES (?,?,?,?,?,?,NULL,NULL)',
                 (transaction.transaction_id,datetime.now(timezone.utc).isoformat(),encoded,score,bundle['model_version'],latency))
-    except sqlite3.IntegrityError:
+    except INTEGRITY_ERRORS:
         # Concurrent duplicate: re-enter once now that committed row is visible.
         return predict(transaction)
     return dict(transaction_id=transaction.transaction_id,score=score,model_version=bundle['model_version'],idempotent=False)
@@ -143,3 +194,4 @@ def monitor():
     if labelled:
         report['labelled_brier']=float(np.mean([(r[1]-r[3])**2 for r in labelled]))
     return report
+
