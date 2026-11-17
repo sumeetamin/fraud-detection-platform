@@ -15,9 +15,6 @@ dependencies = {file = ["requirements.txt"]}
 [tool.setuptools.packages.find]
 include = ["fraud*"]
 
-[tool.vercel]
-entrypoint = "index:app"
-
-[tool.pytest.ini_options]
+[tool.vercel]\nentrypoint = "index:app"\n\n[tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
