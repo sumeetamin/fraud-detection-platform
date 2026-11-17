@@ -1,6 +1,7 @@
 import argparse
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import json
+import os
 import time
 
 import numpy as np
@@ -16,6 +17,7 @@ def main():
     parser.add_argument("--limit", type=int, default=200)
     parser.add_argument("--concurrency", type=int, default=1)
     parser.add_argument("--incident", action="store_true")
+    parser.add_argument("--api-key-env", help="Environment variable holding the API key, if the service requires one.")
     args = parser.parse_args()
     if args.limit < 1 or args.concurrency < 1:
         parser.error("--limit and --concurrency must be positive integers.")
@@ -26,6 +28,12 @@ def main():
         df["v1"] += 3
     if df.empty:
         parser.error("No replay rows found in data/test_transactions.csv.")
+    headers = {}
+    if args.api_key_env:
+        api_key = os.environ.get(args.api_key_env)
+        if not api_key:
+            parser.error(f"Environment variable {args.api_key_env} is empty or unset.")
+        headers["X-API-Key"] = api_key
 
     def send(item):
         index, row = item
@@ -35,7 +43,7 @@ def main():
         }
         started = time.perf_counter()
         try:
-            response = requests.post(f"{args.url.rstrip('/')}/predict", json=data, timeout=30)
+            response = requests.post(f"{args.url.rstrip('/')}/predict", json=data, headers=headers, timeout=30)
             elapsed_ms = (time.perf_counter() - started) * 1000
             response.raise_for_status()
             return elapsed_ms, None

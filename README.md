@@ -72,6 +72,10 @@ flowchart LR
 
 `runtime/events.sqlite` is created automatically and ignored by Git. Set `FRAUD_DB` to override the local database path. The API initializes WAL/schema once per worker and closes request connections after use. Runtime data and model binaries are not committed. `python -m fraud.train` regenerates model artifacts in a fresh clone.
 
+## API access control
+
+Local development without a key is restricted to loopback clients. Before non-loopback or public serving, set `FRAUD_ENV=production` and provide a high-entropy `FRAUD_API_TOKEN` of at least 32 characters; protected endpoints require it in the `X-API-Key` header, and production mode fails closed when the token is missing or too short. The public `/health` endpoint only reports readiness and model version. Do not commit the token. The replay tool can read a key from an environment variable with `--api-key-env FRAUD_API_TOKEN` without printing it.
+
 ## Model versions and rollback
 
 Training writes a versioned joblib artifact and updates `artifacts/current.txt`. Previous local artifacts are retained. To activate an existing version:
@@ -86,7 +90,7 @@ The API reads the pointer on requests and caches artifacts by version. Identical
 
 The incident simulation increases Amount and shifts V1. PSI > 0.2 is a heuristic alert, not evidence of model failure. Monitoring waits for 100 events before returning PSI and never automatically retrains. Labelled metrics can be biased when only reviewed transactions receive outcomes. Replay can measure sequential and concurrent local HTTP latency. For example, run `python -m fraud.replay --limit 200 --concurrency 16` against the local API. The report includes throughput, p50/p95 latency, and errors. Results include client and network overhead and do not establish production capacity.
 
-The dashboard's historical queue and interactive scoring run locally; the API's live queue is separate. SQLite and a single-process service are appropriate for this demo. Authentication, distributed feature computation, model governance, robust calibration and real-world validation are future deployment work.
+The dashboard's historical queue and interactive scoring run locally; the API's live queue is separate. SQLite and a single-process service are appropriate for this demo. Production still needs gateway rate limiting, durable multi-instance storage, distributed feature computation, model governance, robust calibration and real-world validation.
 
 See [measured results](reports/RESULTS.md) for a reproducible ULB benchmark and a 1,000-request local API replay, including normal and shifted-input latency/error measurements. Cloud cost and public deployment have not been measured.
 
@@ -103,8 +107,9 @@ The schema is illustrated by `data/schema_example.csv`. Required fields are tran
 ```bash
 docker build -t fraud-platform .
 docker run --rm -p 8503:8501 fraud-platform
-# API alternative:
-docker run --rm -p 8003:8003 fraud-platform uvicorn fraud.api:app --host 0.0.0.0 --port 8003
+# First create a Git-ignored .env with FRAUD_ENV=production and a strong FRAUD_API_TOKEN.
+# API alternative with persistent local SQLite storage:
+docker run --rm -p 8003:8003 --env-file .env -v fraud-runtime:/app/runtime fraud-platform uvicorn fraud.api:app --host 0.0.0.0 --port 8003
 ```
 
 Tests cover temporal label availability, review budgets, drift, invalid data, idempotency, conflict handling, delayed outcomes and API validation. Never load untrusted joblib files.

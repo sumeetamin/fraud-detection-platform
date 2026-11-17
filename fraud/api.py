@@ -1,5 +1,6 @@
 import json
 import os
+import secrets
 import sqlite3
 import time
 import threading
@@ -10,7 +11,7 @@ from functools import lru_cache
 import joblib
 import numpy as np
 import pandas as pd
-from fastapi import FastAPI,HTTPException,Query
+from fastapi import FastAPI,HTTPException,Query,Header,Request,Depends
 from pydantic import BaseModel,Field,ConfigDict
 from .core import ROOT,FEATURES,drift
 
@@ -26,6 +27,21 @@ class Transaction(BaseModel):
 class Label(BaseModel):
     transaction_id: str
     is_fraud: int=Field(ge=0,le=1)
+
+def require_api_access(request:Request,x_api_key:str|None=Header(default=None)):
+    expected=os.environ.get('FRAUD_API_TOKEN')
+    production=os.environ.get('FRAUD_ENV','local').lower()=='production'
+    if expected:
+        if len(expected)<32:
+            raise HTTPException(503,'FRAUD_API_TOKEN must contain at least 32 characters.')
+        if not secrets.compare_digest(x_api_key or '',expected):
+            raise HTTPException(401,'A valid X-API-Key is required.')
+        return
+    if production:
+        raise HTTPException(503,'FRAUD_API_TOKEN must be configured in production.')
+    client=request.client
+    if client is None or client.host not in {'127.0.0.1','::1','testclient'}:
+        raise HTTPException(503,'Configure FRAUD_API_TOKEN before serving non-loopback requests.')
 
 def connect():
     path=Path(os.environ.get('FRAUD_DB',str(ROOT/'runtime/events.sqlite')))
@@ -68,7 +84,7 @@ def health():
     bundle=active()
     return {'status':'ready','model_version':bundle['model_version']}
 
-@app.post('/predict')
+@app.post('/predict',dependencies=[Depends(require_api_access)])
 def predict(transaction:Transaction):
     start=time.perf_counter()
     payload=transaction.model_dump()
@@ -94,7 +110,7 @@ def predict(transaction:Transaction):
         return predict(transaction)
     return dict(transaction_id=transaction.transaction_id,score=score,model_version=bundle['model_version'],idempotent=False)
 
-@app.post('/labels')
+@app.post('/labels',dependencies=[Depends(require_api_access)])
 def label(value:Label):
     with connect() as conn:
         row=conn.execute('SELECT label FROM events WHERE transaction_id=?',(value.transaction_id,)).fetchone()
@@ -105,7 +121,7 @@ def label(value:Label):
                 (value.is_fraud,datetime.now(timezone.utc).isoformat(),value.transaction_id))
     return {'status':'recorded'}
 
-@app.get('/queue')
+@app.get('/queue',dependencies=[Depends(require_api_access)])
 def queue(budget:int=Query(default=10,ge=1,le=1000)):
     # Capacity applies to the current UTC received day. Historical simulation lives in core.review_queue.
     today=datetime.now(timezone.utc).date().isoformat()
@@ -113,7 +129,7 @@ def queue(budget:int=Query(default=10,ge=1,le=1000)):
         rows=conn.execute('SELECT transaction_id,score,model_version FROM events WHERE label IS NULL AND substr(received_at,1,10)=? ORDER BY score DESC,transaction_id LIMIT ?', (today,budget)).fetchall()
     return [dict(transaction_id=r[0],score=r[1],model_version=r[2]) for r in rows]
 
-@app.get('/monitor')
+@app.get('/monitor',dependencies=[Depends(require_api_access)])
 def monitor():
     with connect() as conn:
         rows=conn.execute('SELECT payload,score,latency_ms,label,model_version FROM events ORDER BY received_at DESC LIMIT 1000').fetchall()
