@@ -12,6 +12,7 @@ import joblib
 import numpy as np
 import pandas as pd
 from fastapi import FastAPI,HTTPException,Query,Header,Request,Depends
+from fastapi.responses import HTMLResponse
 from pydantic import BaseModel,Field,ConfigDict
 from .core import ROOT,FEATURES,drift
 
@@ -24,6 +25,26 @@ app=FastAPI(title='Fraud Detection Platform',version='1.0.0')
 _db_init_lock=threading.Lock()
 _initialized_databases=set()
 INTEGRITY_ERRORS=tuple(error for error in (sqlite3.IntegrityError, psycopg.IntegrityError if psycopg else None) if error)
+
+@app.get('/',response_class=HTMLResponse,include_in_schema=False)
+def home():
+    return HTMLResponse('''<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Fraud Detection Platform API</title>
+<style>
+body{margin:0;background:#f4f7fb;color:#182230;font:16px/1.6 system-ui,-apple-system,Segoe UI,sans-serif}
+main{max-width:760px;margin:8vh auto;padding:36px;background:#fff;border:1px solid #dce4ee;border-radius:18px;box-shadow:0 18px 48px #18223012}
+h1{font-size:2rem;margin:0 0 8px}p{color:#526174}.tag{display:inline-block;background:#e8f3ff;color:#135ca8;border-radius:999px;padding:4px 12px;font-size:.85rem;font-weight:650}
+.links{display:flex;gap:12px;flex-wrap:wrap;margin:24px 0}.links a{padding:10px 16px;background:#125fc4;color:white;text-decoration:none;border-radius:9px;font-weight:650}.links a.secondary{background:#edf2f7;color:#223247}
+section{border-top:1px solid #e6ebf1;padding-top:18px;margin-top:20px}code{background:#eef2f6;padding:2px 6px;border-radius:5px}
+.note{background:#fff7e6;border-left:4px solid #e2a62b;padding:12px 16px;color:#5e4a20;border-radius:6px}
+</style></head><body><main>
+<span class="tag">API service</span><h1>Fraud Detection Platform</h1>
+<p>A reproducible scoring and analyst-review demo with model versioning, delayed-label tracking, and drift monitoring.</p>
+<div class="links"><a href="/docs">Interactive API docs</a><a class="secondary" href="/health">Readiness status</a></div>
+<section><h2>Authentication</h2><p>Scoring and analyst endpoints require a private <code>X-API-Key</code> header. Keep the key out of browser links, source code, and shared screenshots. Open the API docs to inspect request fields.</p></section>
+<p class="note">This is a portfolio prototype. Scores support human review and are not proof of fraud or a stand-alone basis for customer action.</p>
+</main></body></html>''')
 
 class Transaction(BaseModel):
     model_config=ConfigDict(extra='forbid')
@@ -194,3 +215,4 @@ def monitor():
     if labelled:
         report['labelled_brier']=float(np.mean([(r[1]-r[3])**2 for r in labelled]))
     return report
+
