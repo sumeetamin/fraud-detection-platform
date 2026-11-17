@@ -50,6 +50,8 @@ The reproducible real-data path uses the anonymized **ULB/Worldline credit-card 
 
 The source Time field is elapsed seconds, not a calendar date. This project supplies a fixed UTC origin only to make chronological splits and daily review capacity reproducible; it does not represent the original transaction dates. The three-hour label delay is also a modelling simulation because the benchmark spans only two days and has no observed label-arrival time. Scores are research demonstrations and must not be used for actual financial decisions.
 
+The checked-in reference, schema and replay CSVs are bounded samples for quick local runs. Training regenerates them from the selected data source; raw benchmark data remains under the ignored `data/private/` directory.
+
 Training uses the first 60% of time, validation the next 20%, and final testing the last 20%. Labels unavailable at the training or validation cutoff are excluded. Feature transforms are fit only on training data. All supplied features must be available at prediction time; the API assumes upstream feature computation, not a streaming feature store.
 
 Logistic regression and histogram gradient boosting are compared. The active model is chosen using **validation average precision**, never final-test performance. Reports include average precision, ROC-AUC, Brier score and precision/recall at a daily review budget. Average precision is not identical to trapezoidal PR-AUC. See [results](reports/RESULTS.md) and [raw report](reports/evaluation.json).
@@ -85,6 +87,8 @@ The API reads the pointer on requests and caches artifacts by version. Identical
 The incident simulation increases Amount and shifts V1. PSI > 0.2 is a heuristic alert, not evidence of model failure. Monitoring waits for 100 events before returning PSI and never automatically retrains. Labelled metrics can be biased when only reviewed transactions receive outcomes. Replay can measure sequential and concurrent local HTTP latency. For example, run `python -m fraud.replay --limit 200 --concurrency 16` against the local API. The report includes throughput, p50/p95 latency, and errors. Results include client and network overhead and do not establish production capacity.
 
 The dashboard's historical queue and interactive scoring run locally; the API's live queue is separate. SQLite and a single-process service are appropriate for this demo. Authentication, distributed feature computation, model governance, robust calibration and real-world validation are future deployment work.
+
+See [measured results](reports/RESULTS.md) for a reproducible ULB benchmark and a 1,000-request local API replay, including normal and shifted-input latency/error measurements. Cloud cost and public deployment have not been measured.
 
 ## Bring your own data
 
