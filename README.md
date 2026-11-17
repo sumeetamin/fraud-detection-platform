@@ -32,6 +32,7 @@ API documentation: `http://127.0.0.1:8003/docs`.
 
 | Endpoint | Behaviour |
 |---|---|
+| `GET /` | Service landing page with API docs and readiness links |
 | `POST /predict` | Score and persist a transaction; exact retries return the original score |
 | `POST /labels` | Record a delayed outcome; reject conflicting labels |
 | `GET /queue?budget=10` | Highest-scoring unlabelled transactions received today (UTC) |
