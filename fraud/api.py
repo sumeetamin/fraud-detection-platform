@@ -194,4 +194,3 @@ def monitor():
     if labelled:
         report['labelled_brier']=float(np.mean([(r[1]-r[3])**2 for r in labelled]))
     return report
-
