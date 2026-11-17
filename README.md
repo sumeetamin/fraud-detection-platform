@@ -72,6 +72,8 @@ flowchart LR
 
 `runtime/events.sqlite` is created automatically and ignored by Git. Set `FRAUD_DB` to override the local database path. The API initializes WAL/schema once per worker and closes request connections after use. Runtime data and model binaries are not committed. `python -m fraud.train` regenerates model artifacts in a fresh clone.
 
+The container uses a model artifact only when `artifacts/current.txt` points to an included `.joblib` file. Otherwise it trains the clearly labeled synthetic demo model. To containerize the ULB model, download the approved public data, train it locally, and build while the matching artifact and pointer are present; do not include private source data in the build context.
+
 ## API access control
 
 Local development without a key is restricted to loopback clients. Before non-loopback or public serving, set `FRAUD_ENV=production` and provide a high-entropy `FRAUD_API_TOKEN` of at least 32 characters; protected endpoints require it in the `X-API-Key` header, and production mode fails closed when the token is missing or too short. The public `/health` endpoint only reports readiness and model version. Do not commit the token. The replay tool can read a key from an environment variable with `--api-key-env FRAUD_API_TOKEN` without printing it.
@@ -105,11 +107,17 @@ The schema is illustrated by `data/schema_example.csv`. Required fields are tran
 ## Docker and checks
 
 ```bash
+cp .env.example .env
+# Set FRAUD_API_TOKEN in .env to a generated secret of at least 32 characters.
+docker compose up --build -d
+docker compose ps
+```
+
+Compose exposes the API on port 8003, uses a named volume for the SQLite event store, and checks `/health`. Keep `.env` private. The named volume survives container recreation on this host; it is not a backup and must be replaced with host-specific persistent storage for a cloud deployment.
+
+```bash
 docker build -t fraud-platform .
 docker run --rm -p 8503:8501 fraud-platform
-# First create a Git-ignored .env with FRAUD_ENV=production and a strong FRAUD_API_TOKEN.
-# API alternative with persistent local SQLite storage:
-docker run --rm -p 8003:8003 --env-file .env -v fraud-runtime:/app/runtime fraud-platform uvicorn fraud.api:app --host 0.0.0.0 --port 8003
 ```
 
 Tests cover temporal label availability, review budgets, drift, invalid data, idempotency, conflict handling, delayed outcomes and API validation. Never load untrusted joblib files.
