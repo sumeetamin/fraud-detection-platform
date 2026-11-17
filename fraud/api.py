@@ -2,6 +2,8 @@ import json
 import os
 import sqlite3
 import time
+import threading
+from contextlib import contextmanager
 from pathlib import Path
 from datetime import datetime, timezone
 from functools import lru_cache
@@ -13,6 +15,8 @@ from pydantic import BaseModel,Field,ConfigDict
 from .core import ROOT,FEATURES,drift
 
 app=FastAPI(title='Fraud Detection Platform',version='1.0.0')
+_db_init_lock=threading.Lock()
+_initialized_databases=set()
 
 class Transaction(BaseModel):
     model_config=ConfigDict(extra='forbid')
@@ -26,10 +30,27 @@ class Label(BaseModel):
 def connect():
     path=Path(os.environ.get('FRAUD_DB',str(ROOT/'runtime/events.sqlite')))
     path.parent.mkdir(parents=True,exist_ok=True)
-    conn=sqlite3.connect(path,timeout=15)
-    conn.execute('PRAGMA journal_mode=WAL')
-    conn.execute('CREATE TABLE IF NOT EXISTS events (transaction_id TEXT PRIMARY KEY, received_at TEXT, payload TEXT, score REAL, model_version TEXT, latency_ms REAL, label INTEGER, label_received_at TEXT)')
-    return conn
+    key=str(path.resolve())
+    if key not in _initialized_databases:
+        with _db_init_lock:
+            if key not in _initialized_databases:
+                with sqlite3.connect(path,timeout=15) as setup:
+                    setup.execute('PRAGMA journal_mode=WAL')
+                    setup.execute('CREATE TABLE IF NOT EXISTS events (transaction_id TEXT PRIMARY KEY, received_at TEXT, payload TEXT, score REAL, model_version TEXT, latency_ms REAL, label INTEGER, label_received_at TEXT)')
+                _initialized_databases.add(key)
+
+    @contextmanager
+    def managed_connection():
+        conn=sqlite3.connect(path,timeout=15)
+        try:
+            yield conn
+            conn.commit()
+        except Exception:
+            conn.rollback()
+            raise
+        finally:
+            conn.close()
+    return managed_connection()
 
 @lru_cache(maxsize=4)
 def load_version(version):

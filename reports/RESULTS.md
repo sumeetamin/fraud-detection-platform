@@ -15,8 +15,8 @@ The FastAPI service was run locally on Windows with Uvicorn and the selected ULB
 
 | Replay scenario | Concurrency | Throughput (req/s) | p50 (ms) | p95 (ms) | Errors |
 |---|---:|---:|---:|---:|---:|
-| Normal | 1 | 31.13 | 31.69 | 49.67 | 0 / 1,000 |
-| Normal | 16 | 284.22 | 54.30 | 59.62 | 0 / 1,000 |
-| Amount ×4 and V1 +3 shift | 16 | 75.55 | 227.15 | 328.08 | 0 / 1,000 |
+| Normal | 1 | 24.65 | 40.86 | 52.31 | 0 / 1,000 |
+| Normal | 16 | 53.12 | 278.46 | 437.46 | 0 / 1,000 |
+| Amount ×4 and V1 +3 shift | 16 | 62.28 | 231.84 | 386.05 | 0 / 1,000 |
 
-The shifted run is slower because monitoring work is triggered on the drifted request path; this is a signal to profile and decouple monitoring before claiming production readiness. The monitor observed 1,000 events and 29 feature drift measurements after replay. Model pointer activation and rollback were exercised locally between the real-data model and a clearly labeled synthetic demo model; the real-data model was restored afterward. No cloud deployment or cloud cost was measured, so no cost-per-request figure is claimed. SQLite, single-process serving, missing authentication, and missing rate limits keep this project at local-demo scope.
+Each scenario used a fresh local SQLite database. The results show this single host's concurrency overhead; this small run does not establish a repeatable production capacity target or a causal performance difference under feature shift. The monitor observed 1,000 events and 29 feature drift measurements after replay. Model pointer activation and rollback were exercised locally between the real-data model and a clearly labeled synthetic demo model; the real-data model was restored afterward. No cloud deployment or cloud cost was measured, so no cost-per-request figure is claimed. SQLite, single-process serving, missing authentication, and missing rate limits keep this project at local-demo scope.

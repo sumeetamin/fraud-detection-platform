@@ -60,6 +60,7 @@ def main():
         "throughput_requests_per_second": round((len(outcomes) - len(errors)) / elapsed_seconds, 2),
         "p50_ms": round(float(np.percentile(timings, 50)), 2),
         "p95_ms": round(float(np.percentile(timings, 95)), 2),
+        "error_samples": errors[:3],
         "incident_shift": args.incident,
         "note": "Local benchmark includes client/network overhead. Results depend on host hardware and do not establish production capacity.",
     }, indent=2))

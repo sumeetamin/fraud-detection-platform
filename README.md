@@ -70,7 +70,7 @@ flowchart LR
     G --> I[Drift and latency monitoring]
 ```
 
-`runtime/events.sqlite` is created automatically and ignored by Git. Set `FRAUD_DB` to override the local database path. Runtime data and model binaries are not committed. `python -m fraud.train` regenerates model artifacts in a fresh clone.
+`runtime/events.sqlite` is created automatically and ignored by Git. Set `FRAUD_DB` to override the local database path. The API initializes WAL/schema once per worker and closes request connections after use. Runtime data and model binaries are not committed. `python -m fraud.train` regenerates model artifacts in a fresh clone.
 
 ## Model versions and rollback
 
