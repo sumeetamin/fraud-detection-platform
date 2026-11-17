@@ -13,4 +13,4 @@ pypdf>=5,<7
 reportlab>=4,<6
 requests>=2.32,<3
 scipy>=1.10,<2
-\npsycopg[binary]>=3.2,<4\n
+psycopg[binary]>=3.2,<4
