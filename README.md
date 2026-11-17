@@ -78,6 +78,10 @@ The container uses a model artifact only when `artifacts/current.txt` points to 
 
 Local development without a key is restricted to loopback clients. Before non-loopback or public serving, set `FRAUD_ENV=production` and provide a high-entropy `FRAUD_API_TOKEN` of at least 32 characters; protected endpoints require it in the `X-API-Key` header, and production mode fails closed when the token is missing or too short. The public `/health` endpoint only reports readiness and model version. Do not commit the token. The replay tool can read a key from an environment variable with `--api-key-env FRAUD_API_TOKEN` without printing it.
 
+## Hosted deployment status
+
+The Vercel production deployment is built and ready at [fraud-detection-platform-six.vercel.app](https://fraud-detection-platform-six.vercel.app). The /health endpoint returned ready with the bundled model version during deployment validation. Vercel SSO deployment protection remains enabled, so unauthenticated visitors cannot access the deployment. Inference endpoints also require the configured X-API-Key; the secret is stored in Vercel and is not part of this repository. An authenticated cloud inference request and cloud cost have not been measured. The connected Prisma Postgres Free plan was listed during setup at $0, 100,000 database operations per month, and 2 GB storage; verify current limits in the provider dashboard.
+
 ## Model versions and rollback
 
 Training writes a versioned joblib artifact and updates `artifacts/current.txt`. Previous local artifacts are retained. To activate an existing version:
