@@ -12,6 +12,20 @@ from sklearn.preprocessing import StandardScaler
 from .core import ROOT,FEATURES,demo_data,validate,temporal_split,metrics,review_queue,drift
 from .sources import openml_creditcard
 
+def stable_parameters(value):
+    """Convert nested sklearn estimator settings into deterministic JSON values."""
+    if hasattr(value, 'get_params'):
+        return {'class': f'{type(value).__module__}.{type(value).__qualname__}',
+                'parameters': stable_parameters(value.get_params(deep=True))}
+    if isinstance(value, dict):
+        return {str(key): stable_parameters(item) for key, item in sorted(value.items(), key=lambda pair: str(pair[0]))}
+    if isinstance(value, (list, tuple)):
+        return [stable_parameters(item) for item in value]
+    if value is None or isinstance(value, (str, int, float, bool)):
+        return value
+    return repr(value)
+
+
 def main():
     parser=argparse.ArgumentParser()
     source=parser.add_mutually_exclusive_group()
@@ -47,7 +61,7 @@ def main():
         'training_data_sha256':training_data_sha256,
         'estimator_sha256':estimator_sha256,
         'selected_model':selected,
-        'model_parameters':selected_model.get_params(deep=True),
+        'model_parameters':stable_parameters(selected_model),
         'features':FEATURES,
         'train_as_of':str(t1),
         'train_label_max':str(train.label_available_at.max()),
