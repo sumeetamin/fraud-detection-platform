@@ -41,6 +41,7 @@ def main():
     manifest={
         'source':source_name,
         'training_data_sha256':training_data_sha256,
+        'estimator_sha256':estimator_sha256,
         'selected_model':selected,
         'model_parameters':selected_model.get_params(deep=True),
         'features':FEATURES,
