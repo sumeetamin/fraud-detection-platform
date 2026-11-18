@@ -38,6 +38,10 @@ def main():
     training_data_sha256=hashlib.sha256(
         pd.util.hash_pandas_object(train,index=False).values.tobytes()
     ).hexdigest()
+    estimator_tmp=ROOT/'artifacts/estimator-content.tmp'
+    joblib.dump(selected_model,estimator_tmp)
+    estimator_sha256=hashlib.sha256(estimator_tmp.read_bytes()).hexdigest()
+    estimator_tmp.unlink()
     manifest={
         'source':source_name,
         'training_data_sha256':training_data_sha256,
