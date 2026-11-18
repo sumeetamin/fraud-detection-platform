@@ -192,19 +192,17 @@ def predict(transaction:Transaction):
 @app.post('/labels',dependencies=[Depends(require_api_access)])
 def label(value:Label):
     with connect() as conn:
-        row=conn.execute('SELECT label FROM events WHERE transaction_id=?',(value.transaction_id,)).fetchone()
-        if row is None: raise HTTPException(404,'Transaction not found.')
-        if row[0] is not None:
-            if row[0]!=value.is_fraud: raise HTTPException(409,'Conflicting label already recorded.')
-            return {'status':'recorded','idempotent':True}
         updated=conn.execute(
             'UPDATE events SET label=?,label_received_at=? WHERE transaction_id=? AND label IS NULL',
             (value.is_fraud,datetime.now(timezone.utc).isoformat(),value.transaction_id))
-        if updated.rowcount != 1:
-            committed=conn.execute('SELECT label FROM events WHERE transaction_id=?',(value.transaction_id,)).fetchone()
-            if committed is None: raise HTTPException(404,'Transaction not found.')
-            if committed[0]!=value.is_fraud: raise HTTPException(409,'Conflicting label already recorded.')
-    return {'status':'recorded','idempotent':False}
+        if updated.rowcount == 1:
+            return {'status':'recorded','idempotent':False}
+        # Read after the conditional write: it atomically arbitrates competing labels
+        # on SQLite and Postgres without a read-then-write race.
+        committed=conn.execute('SELECT label FROM events WHERE transaction_id=?',(value.transaction_id,)).fetchone()
+        if committed is None: raise HTTPException(404,'Transaction not found.')
+        if committed[0]!=value.is_fraud: raise HTTPException(409,'Conflicting label already recorded.')
+        return {'status':'recorded','idempotent':True}
 
 @app.get('/queue',dependencies=[Depends(require_api_access)])
 def queue(budget:int=Query(default=10,ge=1,le=1000)):
