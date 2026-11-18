@@ -1,6 +1,8 @@
 import argparse
 import hashlib
 import json
+import os
+import sklearn
 import joblib
 import pandas as pd
 from sklearn.ensemble import HistGradientBoostingClassifier
@@ -32,9 +34,25 @@ def main():
         model.fit(train[FEATURES],train.is_fraud)
         validation[name]=metrics(val,model.predict_proba(val[FEATURES])[:,1])
     selected=max(validation,key=lambda name: validation[name]['average_precision'])
-    version=hashlib.sha256(pd.util.hash_pandas_object(train,index=False).values.tobytes()+selected.encode()).hexdigest()[:12]
+    selected_model=models[selected]
+    training_data_sha256=hashlib.sha256(
+        pd.util.hash_pandas_object(train,index=False).values.tobytes()
+    ).hexdigest()
+    manifest={
+        'source':source_name,
+        'training_data_sha256':training_data_sha256,
+        'selected_model':selected,
+        'model_parameters':selected_model.get_params(deep=True),
+        'features':FEATURES,
+        'train_as_of':str(t1),
+        'train_label_max':str(train.label_available_at.max()),
+        'sklearn_version':sklearn.__version__,
+    }
+    manifest_json=json.dumps(manifest,sort_keys=True,separators=(',',':'),default=str)
+    version=hashlib.sha256(manifest_json.encode()).hexdigest()
     report={'source':source_name,
             'model_version':version,'selected_model':selected,'selection_metric':'validation average precision',
+            'training_manifest':manifest,
             'train_rows':len(train),'validation_rows':len(val),'test_rows':len(test),
             'train_as_of':str(t1),'evaluation_as_of':str(t2),
             'train_label_max':str(train.label_available_at.max()),'validation_label_max':str(val.label_available_at.max()),
@@ -42,10 +60,20 @@ def main():
     for name,model in models.items():
         scores=model.predict_proba(test[FEATURES])[:,1]
         report['test'][name]=metrics(test,scores)
-    bundle=dict(model=models[selected],model_version=version,features=FEATURES,report=report)
-    joblib.dump(bundle,ROOT/f'artifacts/{version}.joblib')
-    # Atomic pointer swap; prior artifacts remain available for explicit rollback.
-    pointer=ROOT/'artifacts/current.tmp'; pointer.write_text(version); pointer.replace(ROOT/'artifacts/current.txt')
+    bundle=dict(model=selected_model,model_version=version,features=FEATURES,manifest=manifest,report=report)
+    artifact=ROOT/f'artifacts/{version}.joblib'
+    if not artifact.exists():
+        temporary=ROOT/f'artifacts/{version}.joblib.tmp'
+        joblib.dump(bundle,temporary)
+        # A version path is immutable; complete the file before making it addressable.
+        if artifact.exists():
+            temporary.unlink(missing_ok=True)
+        else:
+            os.replace(temporary,artifact)
+    # Atomic pointer swap; old content-addressed artifacts remain available for rollback.
+    pointer=ROOT/'artifacts/current.tmp'
+    pointer.write_text(version)
+    os.replace(pointer,ROOT/'artifacts/current.txt')
     scores=models[selected].predict_proba(test[FEATURES])[:,1]
     test=test.copy(); test['score']=scores
     test.to_csv(ROOT/'data/test_transactions.csv',index=False)
