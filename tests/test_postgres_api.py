@@ -3,7 +3,7 @@ import uuid
 
 from fastapi.testclient import TestClient
 
-from fraud.api import app
+from fraud.api import app, active
 from fraud.core import FEATURES
 
 
@@ -14,6 +14,10 @@ def test_production_postgres_serves_reloaded_active_model():
     assert health.status_code == 200
     assert health.json()["storage"] == "ready"
     version = health.json()["model_version"]
+    loaded = active()
+    assert loaded["model_version"] == version
+    assert loaded["manifest"]["estimator_sha256"]
+    assert len(version) == 64
 
     features = {key: 0.0 for key in FEATURES}
     features["amount"] = 25.0
