@@ -2,9 +2,12 @@ import os
 import uuid
 
 from fastapi.testclient import TestClient
+import pytest
 
 from fraud.api import app, active
 from fraud.core import FEATURES
+
+pytestmark = pytest.mark.skipif('DATABASE_URL' not in os.environ, reason='requires PostgreSQL integration service')
 
 
 def test_production_postgres_serves_reloaded_active_model():
