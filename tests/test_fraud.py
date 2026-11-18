@@ -1,5 +1,7 @@
 import numpy as np
 import pytest
+from concurrent.futures import ThreadPoolExecutor
+from threading import Barrier
 from fastapi.testclient import TestClient
 from fraud.core import demo_data,validate,temporal_split,review_queue,drift,FEATURES
 from fraud.api import app
@@ -41,3 +43,28 @@ def test_bad_registry_and_data():
     with pytest.raises(ValueError): activate('../bad')
     df=demo_data(n=2000); df.loc[0,'amount']=-1
     with pytest.raises(ValueError): validate(df)
+
+
+def test_conflicting_concurrent_labels_have_one_winner(tmp_path,monkeypatch):
+    monkeypatch.setenv('FRAUD_DB',str(tmp_path/'events.sqlite'))
+    client=TestClient(app)
+    features={key:0.0 for key in FEATURES}; features['amount']=100.0
+    assert client.post('/predict',json={'transaction_id':'RACE-1','features':features}).status_code==200
+    barrier=Barrier(2)
+    def submit(label):
+        barrier.wait()
+        return client.post('/labels',json={'transaction_id':'RACE-1','is_fraud':label}).status_code
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        statuses=list(pool.map(submit,[0,1]))
+    assert sorted(statuses)==[200,409]
+    stored=client.get('/monitor').json()
+    assert stored['labelled_events']==1
+
+
+def test_health_checks_model_and_storage(tmp_path,monkeypatch):
+    monkeypatch.setenv('FRAUD_DB',str(tmp_path/'events.sqlite'))
+    client=TestClient(app)
+    assert client.get('/health/live').json()=={'status':'alive'}
+    ready=client.get('/health')
+    assert ready.status_code==200
+    assert ready.json()['storage']=='ready'
