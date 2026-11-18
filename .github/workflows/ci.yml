@@ -12,3 +12,34 @@ jobs:
       - run: pip install -r requirements.txt
       - run: python -m fraud.train
       - run: python -m pytest -q
+
+  postgres-production:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: fraud
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d fraud"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+          cache: pip
+      - run: pip install -r requirements.txt
+      - run: python -m fraud.train
+      - name: Check production Postgres API and active model
+        env:
+          FRAUD_ENV: production
+          FRAUD_API_TOKEN: ci-only-token-with-more-than-32-characters
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/fraud
+        run: python -m pytest -q tests/test_postgres_api.py
