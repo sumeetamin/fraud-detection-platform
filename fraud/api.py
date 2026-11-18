@@ -1,6 +1,7 @@
 import json
 import os
 import secrets
+import hashlib
 import sqlite3
 import time
 import threading
@@ -151,10 +152,16 @@ def active():
     if not (ROOT/f'artifacts/{version}.joblib').exists(): raise HTTPException(503,'Active model artifact missing; retrain.')
     return load_version(version)
 
+@app.get('/health/live')
+def live():
+    return {'status':'alive'}
+
 @app.get('/health')
 def health():
     bundle=active()
-    return {'status':'ready','model_version':bundle['model_version']}
+    with connect() as conn:
+        conn.execute('SELECT 1').fetchone()
+    return {'status':'ready','model_version':bundle['model_version'],'storage':'ready'}
 
 @app.post('/predict',dependencies=[Depends(require_api_access)])
 def predict(transaction:Transaction):
@@ -187,11 +194,17 @@ def label(value:Label):
     with connect() as conn:
         row=conn.execute('SELECT label FROM events WHERE transaction_id=?',(value.transaction_id,)).fetchone()
         if row is None: raise HTTPException(404,'Transaction not found.')
-        if row[0] is not None and row[0]!=value.is_fraud: raise HTTPException(409,'Conflicting label already recorded.')
-        if row[0] is None:
-            conn.execute('UPDATE events SET label=?,label_received_at=? WHERE transaction_id=?',
-                (value.is_fraud,datetime.now(timezone.utc).isoformat(),value.transaction_id))
-    return {'status':'recorded'}
+        if row[0] is not None:
+            if row[0]!=value.is_fraud: raise HTTPException(409,'Conflicting label already recorded.')
+            return {'status':'recorded','idempotent':True}
+        updated=conn.execute(
+            'UPDATE events SET label=?,label_received_at=? WHERE transaction_id=? AND label IS NULL',
+            (value.is_fraud,datetime.now(timezone.utc).isoformat(),value.transaction_id))
+        if updated.rowcount != 1:
+            committed=conn.execute('SELECT label FROM events WHERE transaction_id=?',(value.transaction_id,)).fetchone()
+            if committed is None: raise HTTPException(404,'Transaction not found.')
+            if committed[0]!=value.is_fraud: raise HTTPException(409,'Conflicting label already recorded.')
+    return {'status':'recorded','idempotent':False}
 
 @app.get('/queue',dependencies=[Depends(require_api_access)])
 def queue(budget:int=Query(default=10,ge=1,le=1000)):
