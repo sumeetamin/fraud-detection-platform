@@ -91,7 +91,7 @@ Training writes a versioned joblib artifact and updates `artifacts/current.txt`.
 python -m fraud.registry VERSION
 ```
 
-The API reads the pointer on requests and caches artifacts by version. Identical transaction retries preserve the original model score even after a version change. Promotion/rollback is a local CLI operation, not a public administration endpoint. Version IDs identify training data and selected model name; they are not a complete experiment registry or software provenance hash.
+The API reads the pointer on requests and caches artifacts by version. Identical transaction retries preserve the original model score even after a version change. Promotion/rollback is a local CLI operation, not a public administration endpoint. Version IDs are SHA-256 fingerprints of the training-data hash, selected model configuration, feature list and scikit-learn version. Artifacts at a version path are immutable; promotion changes only the active pointer. The manifest records these inputs, but this remains a compact local registry rather than a full experiment-tracking service.
 
 ## Monitoring and limitations
 
@@ -113,12 +113,13 @@ The schema is illustrated by `data/schema_example.csv`. Required fields are tran
 
 ```bash
 cp .env.example .env
-# Set FRAUD_API_TOKEN in .env to a generated secret of at least 32 characters.
+# Replace the example FRAUD_API_TOKEN with a random secret (32+ characters).
 docker compose up --build -d
+# Send that secret as X-API-Key to /predict, /labels, /queue and /monitor.
 docker compose ps
 ```
 
-Compose exposes the API on port 8003, uses a named volume for the SQLite event store, and checks `/health`. Keep `.env` private. The named volume survives container recreation on this host; it is not a backup and must be replaced with host-specific persistent storage for a cloud deployment.
+The example config is for a local Compose demo: it uses a persistent named SQLite volume and a non-empty API key. `/health/live` checks process liveness; `/health` is readiness and checks both the active model and database. For production, set `FRAUD_ENV=production` and a durable Postgres `DATABASE_URL` instead of SQLite. Keep `.env` private. The named volume survives container recreation on this host; it is not a backup and must be replaced with host-specific persistent storage for a cloud deployment.
 
 ```bash
 docker build -t fraud-platform .
